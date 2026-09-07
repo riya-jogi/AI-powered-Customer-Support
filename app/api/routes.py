@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.schemas import TriageRequest, TriageResponse
 from app.models.database import get_db
 from app.services.triage_service import TriageService
-
-
+from app.api.schemas import (
+    TriageHistoryItem,
+    TriageRequest,
+    TriageResponse,
+)
+from app.models.triage import TriageRecord
 router = APIRouter()
 
 triage_service = TriageService()
@@ -15,6 +18,21 @@ triage_service = TriageService()
     "/triage",
     response_model=TriageResponse,
 )
+@router.get(
+    "/triage",
+    response_model=list[TriageHistoryItem],
+)
+def get_triage_history(
+    db: Session = Depends(get_db),
+) -> list[TriageHistoryItem]:
+
+    records = (
+        db.query(TriageRecord)
+        .order_by(TriageRecord.created_at.desc())
+        .all()
+    )
+
+    return records
 def triage_customer_message(
     request: TriageRequest,
     db: Session = Depends(get_db),

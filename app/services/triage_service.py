@@ -3,10 +3,14 @@ from sqlalchemy.orm import Session
 from app.ai.engine import AIEngine
 from app.ai.result import AIResult
 from app.models.triage import TriageRecord
+from app.services.triage_guard import apply_triage_guard
 
 
 class TriageService:
-    def __init__(self, ai_engine: AIEngine | None = None) -> None:
+    def __init__(
+        self,
+        ai_engine: AIEngine | None = None,
+    ) -> None:
         self.ai_engine = ai_engine or AIEngine()
 
     def triage(
@@ -16,9 +20,22 @@ class TriageService:
     ) -> AIResult:
 
         if not message or not message.strip():
-            raise ValueError("Customer message cannot be empty.")
+            raise ValueError(
+                "Customer message cannot be empty."
+            )
 
         result = self.ai_engine.triage(message)
+
+        guarded_decision = apply_triage_guard(
+            message,
+            result.decision,
+        )
+
+        result = result.model_copy(
+            update={
+                "decision": guarded_decision,
+            }
+        )
 
         record = TriageRecord(
             customer_message=message,
